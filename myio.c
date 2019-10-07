@@ -65,7 +65,18 @@ size_t mywrite(char *pathname, const void *buf, size_t count)
 
     writeableFile = myopen (pathname, "w");
 
-    write (writeableFile, buf, count); //need to call this correctly
+    if (write (writeableFile, buf, count)!=count)
+    {
+        //error
+    }
+
+    else
+    {
+        //unclear; I'm not 100% sure, how this call works; I'll
+        //look at documentation and fix it soon
+    }
+
+    //need to call the above statement correctly i.e.
     //in a way that will count the bytes first and then make the system
     //call only once 4096 bytes have asked to be written or when
     //the all the bytes have been asked and the total number of bytes
