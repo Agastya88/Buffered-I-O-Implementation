@@ -5,16 +5,22 @@
 #include <fcntl.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <errno.h>
 
 int myopen (const char *pathname, const char *mode);
 int myclose (FILE *stream);
 size_t myread (void *ptr, size_t size, size_t nmemb, FILE *stream);
-size_t mywrite(char *pathname, const void *buf, size_t count);
+size_t mywrite(char *pathname, const char *buf, size_t count);
 
 #define BUFFER_SIZE 4096;
 
 int main (int argc, char* argv[])
 {
+
+    char *textToWrite = "Sammy and Agastya - Assignment 2";
+    size_t bytesWritten;
+    bytesWritten = mywrite ("./randomFile.txt", textToWrite, strlen(textToWrite));
+    printf ("The Number of Bytes Written Are: %zu \n", bytesWritten);
     //call functions for testing
 }
 
@@ -25,15 +31,15 @@ int myopen (const char *pathname, const char *mode)
 
   int file;
 
-  if (strcmp (mode, "r"))
+  if (strcmp (mode, "r") == 0)
   {
       file = open (pathname, O_RDONLY);
   }
-  else if (strcmp (mode, "w"))
+  else if (strcmp (mode, "w") == 0)
   {
       file = open (pathname, O_WRONLY);
   }
-  else if (strcmp (mode, "rw"))
+  else if (strcmp (mode, "rw") == 0)
   {
       file = open (pathname, O_RDWR);
   }
@@ -41,7 +47,8 @@ int myopen (const char *pathname, const char *mode)
   return file;
 
   //still need to figure out how to implement
-  //the file creation flags specified
+  //the file creation flags specified - used in
+  //exceptional situations like when there is an error
 
   //so the purpose of these is to make an environment in which
   //read and write can work
@@ -52,7 +59,7 @@ int myclose (FILE *stream)
     return 0;
 }
 
-size_t mywrite(char *pathname, const void *buf, size_t count)
+size_t mywrite(char *pathname, const char *buf, size_t count)
 {
     //note to self: buf is a pointer to a buffer of at least
     //'count' number of bytes
@@ -65,16 +72,7 @@ size_t mywrite(char *pathname, const void *buf, size_t count)
 
     writeableFile = myopen (pathname, "w");
 
-    if (write (writeableFile, buf, count)!=count)
-    {
-        //error
-    }
-
-    else
-    {
-        //unclear; I'm not 100% sure, how this call works; I'll
-        //look at documentation and fix it soon
-    }
+    size_t noOfBytes = write (writeableFile, buf, count);
 
     //need to call the above statement correctly i.e.
     //in a way that will count the bytes first and then make the system
@@ -82,7 +80,7 @@ size_t mywrite(char *pathname, const void *buf, size_t count)
     //the all the bytes have been asked and the total number of bytes
     //is less than 4096
 
-    return 0;
+    return noOfBytes;
 }
 
 size_t myread (void *ptr, size_t size, size_t nmemb, FILE *stream)
