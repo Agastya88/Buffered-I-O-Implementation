@@ -8,47 +8,37 @@
 #include <errno.h>
 #include <stdlib.h>
 
-int myopen (const char *pathname, const char *mode);
-int myclose (int fD);
-size_t myread (void *ptr, size_t size, size_t nmemb, FILE *stream);
-size_t mywrite(int fD, const char *buf, size_t count);
+//NOTES: no globals; dynamic allocation in the open function.
 
+struct fileStruct *myopen (const char *pathname, const char *mode);
+int myclose (struct fileStruct *stream);
+size_t myread (void *ptr, size_t size, size_t nmemb, struct fileStruct *stream);
+size_t mywrite (const char *buf, size_t size, struct fileStruct *stream);
 
-#define BUFFER_SIZE 4096;
-size_t bytesInBuffer = 0;
-int totalNumberOfMyWriteCalls = 0;
+#define BUFFER_SIZE 4096
+
+struct fileStruct
+{
+    int fD;
+    char textBuffer [BUFFER_SIZE];
+    int bytesInBuffer; //number of actually occupied slots
+};
 
 int main (int argc, char* argv[])
 {
 
-    char *textToWrite = malloc (4400);
-    char *textToWrite2 = malloc (4300);
+    struct fileStruct *fileOne = myopen ("randomFile.txt", "w");
 
-    for (int i=0;i<4400;i++)
-    {
-        *(textToWrite+i) = 'a';
-    }
-
-    for (int i=0;i<4300;i++)
-    {
-        *(textToWrite2+i) = 'b';
-    }
-
-    //need to change the data being written
-    //to like some sort of story or something
-    //'a's can be super misleading
+    char *textToWrite = "insert some long text here";
 
     size_t bytesWritten;
+    bytesWritten = mywrite (textToWrite, strlen(textToWrite), fileOne);
 
-    int fD = myopen ("randomFile.txt", "w");
-    bytesWritten = mywrite (fD, textToWrite, strlen(textToWrite));
-    printf ("The number of bytes written by textToWrite are: %zu \n", bytesWritten);
-    printf ("Leftover bytes in buffer: %zu\n", bytesInBuffer); //for debugging
-    bytesWritten = mywrite (fD, textToWrite2, strlen(textToWrite2));
-    printf ("The number of bytes written by textToWrite2 are: %zu \n", bytesWritten);
-    printf ("Leftover bytes in buffer: %zu\n", bytesInBuffer); //for debugging
+    printf ("mywrite (textToWrite, strlen(textToWrite), fileOne) returns: %zu \n", bytesWritten);
 
-    int closeResult = myclose (fD);
+    printf ("fileOne->bytesInBuffer is: %d\n", fileOne->bytesInBuffer); //for debugging
+
+    int closeResult = myclose (fileOne);
     if (closeResult == 0)
     {
         printf ("File closed successfully. \n");
@@ -56,7 +46,7 @@ int main (int argc, char* argv[])
 
 }
 
-int myopen (const char *pathname, const char *mode)
+struct fileStruct *myopen (const char *pathname, const char *mode)
 {
   //makes use of the system call "open" to allow
   //for the opening of files according to their flags
@@ -76,7 +66,10 @@ int myopen (const char *pathname, const char *mode)
       fileDesc = open (pathname, O_RDWR);
   }
 
-  return fileDesc;
+  struct fileStruct *fileOpened = malloc (sizeof(struct fileStruct));
+  fileOpened -> fD = fileDesc;
+  fileOpened -> bytesInBuffer = 0;
+  return fileOpened;
 
   //still need to figure out how to implement
   //the file creation flags specified - used in
@@ -86,24 +79,25 @@ int myopen (const char *pathname, const char *mode)
   //read and write can work
 }
 
-int myclose (int fD)
+int myclose (struct fileStruct *stream)
 {
-    if (bytesInBuffer!=0)
+    if (stream->bytesInBuffer!=0)
     {
-        if (bytesInBuffer<=4096)
+        if (stream->bytesInBuffer<=4096)
         {
-            //int currentBitInBuffer = totalNumberOfMyWriteCalls*4096;
             size_t closingBytesWritten =
-            write (fD, "bs"/*need to figure out how
-            to keep track of buf*/ ,bytesInBuffer);
-                printf ("Bytes written on closing: %zu\n", closingBytesWritten);
+            write (stream->fD, stream->textBuffer ,stream->bytesInBuffer);
+                printf ("Bytes written on closing: %zu\n",
+                 closingBytesWritten);
         }
     }
 
-    return close (fD);
+    free (stream);
+
+    return close (stream->fD);
 }
 
-size_t mywrite(int writeableFileDesc, const char *buf, size_t count)
+size_t mywrite (const char *buf, size_t size, struct fileStruct* stream)
 {
     //note to self: buf is a pointer to a buffer of at least
     //'count' number of bytes
@@ -112,34 +106,39 @@ size_t mywrite(int writeableFileDesc, const char *buf, size_t count)
     //called when "enough bytes" = 4096 or x (if x i.e. total
     //is less than 4096.
 
-    size_t noOfBytesWritten;
-    int numberOfCalls = 0;
+    size_t noOfBytesWritten=0;
 
-    bytesInBuffer += count;
+    //adding the text the user wants to write to the buffer of text
+    //also keeping track of that number of bytes
 
-    while (bytesInBuffer>=4096)
+    //when it doesn't send the number of bytes over 4096
+    if ((stream->bytesInBuffer+strlen(buf))<=4096)
     {
-        noOfBytesWritten = write (writeableFileDesc, buf, 4096);
-        bytesInBuffer = bytesInBuffer - 4096;
-        numberOfCalls ++;
+        for (int i=0; i<strlen(buf);i++)
+        {
+            stream->textBuffer[stream->bytesInBuffer+i] = *(buf+i);
+        }
+        stream->bytesInBuffer+=strlen(buf);
     }
 
-    /*need to actually keep track of the data being written*/
+    //when the new my write call sends the bytes over 4096
+    while ((stream->bytesInBuffer+strlen(buf))>=4096)
+    {
+        //add bytes till buffer fills
+        for (int i=0; i<4096-(stream->bytesInBuffer);i++)
+        {
+             stream->textBuffer[(stream->bytesInBuffer)+i] = *(buf+i);
+        }
+        noOfBytesWritten += write (stream->fD, stream->textBuffer, 4096);
+        stream->bytesInBuffer=0;
+    }
 
-    totalNumberOfMyWriteCalls += numberOfCalls;
-
-    //need to call the above statement correctly i.e.
-    //in a way that will count the bytes first and then make the system
-    //call only once 4096 bytes have asked to be written or when
-    //the all the bytes have been asked and the total number of bytes
-    //is less than 4096
-
-    return numberOfCalls*noOfBytesWritten; // NOTE: this isn't exactly
+    return noOfBytesWritten; // NOTE: this isn't exactly
     // what fwrite returns but I've set it like this right now so I
     // can see what's happening
 }
 
-size_t myread (void *ptr, size_t size, size_t nmemb, FILE *stream)
+size_t myread (void *ptr, size_t size, size_t nmemb, struct fileStruct *stream)
 {
     //creates a buffer so that the sys call read is only
     //called when it's worth it - similar to mywrite
