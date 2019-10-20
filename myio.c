@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include "myio.h"
 
 #define BUFFER_SIZE 4096
@@ -14,14 +15,16 @@
 struct fileStruct
 {
     int fD;
-    char textBuffer [BUFFER_SIZE];
-    int bytesInBuffer; //number of actually occupied slots
+    char writeBuffer [BUFFER_SIZE];
+    int bytesInWriteBuffer;
+    int bytesInReadBuffer;
+    int fileSize;
 };
 
 int main (int argc, char* argv[])
 {
 
-    struct fileStruct *fileOne = myopen ("randomFile.txt", "w");
+    struct fileStruct *fileOne = myopen ("randomFile.txt", "rw");
 
     //first text being written  using mywrite;
     // prints result and leftover bytes;
@@ -29,7 +32,7 @@ int main (int argc, char* argv[])
     size_t bytesWrittenInCallOne;
     bytesWrittenInCallOne = mywrite (textToWrite, strlen(textToWrite), fileOne);
     printf ("mywrite callOne returns: %zu \n", bytesWrittenInCallOne);
-    printf ("fileOne->bytesInBuffer is: %d\n", fileOne->bytesInBuffer);
+    printf ("fileOne->bytesInWriteBuffer is: %d\n", fileOne->bytesInWriteBuffer);
 
     //another text being written  using mywrite;
     //prints result and leftover bytes;
@@ -37,7 +40,7 @@ int main (int argc, char* argv[])
     size_t bytesWrittenInCallTwo;
     bytesWrittenInCallTwo = mywrite (textToWriteTwo, strlen(textToWriteTwo), fileOne);
     printf ("mywrite callTwo returns: %zu \n", bytesWrittenInCallTwo);
-    printf ("fileOne->bytesInBuffer is: %d\n", fileOne->bytesInBuffer);
+    printf ("fileOne->bytesInWriteBuffer is: %d\n", fileOne->bytesInWriteBuffer);
 
     //testing works till here; now I'm gonna try and throw it over 4096
     //huge third text being written  using mywrite;
@@ -88,7 +91,12 @@ int main (int argc, char* argv[])
     size_t bytesWrittenInCallThree;
     bytesWrittenInCallThree = mywrite (textToWriteThree, strlen(textToWriteThree), fileOne);
     printf ("mywrite callThree returns: %zu \n", bytesWrittenInCallThree);
-    printf ("fileOne->bytesInBuffer is: %d\n", fileOne->bytesInBuffer);
+    printf ("fileOne->bytesInWriteBuffer is: %d\n", fileOne->bytesInWriteBuffer);
+
+    //TEST: call myread on the file I just wrote to see if I can read it
+    char *readStorageLocation = malloc (fileOne -> fileSize);
+    size_t bytesReadInCallOne = myread (readStorageLocation,fileOne -> fileSize, fileOne);
+    printf ("myread callOne returns: %zu \n", bytesReadInCallOne);
 
     int closeResult = myclose (fileOne);
     if (closeResult == 0)
@@ -103,23 +111,29 @@ struct fileStruct *myopen (const char *pathname, const char *mode)
   //creates an environment where read and write can function properly;
 
   int fileDesc;
+  struct fileStruct *fileOpened = malloc (sizeof(struct fileStruct));
 
   if (strcmp (mode, "r") == 0)
   {
       fileDesc = open (pathname, O_RDONLY);
+      fileOpened -> bytesInReadBuffer = 0;
+      fileOpened -> fileSize = getFilesize (pathname);
   }
   else if (strcmp (mode, "w") == 0)
   {
       fileDesc = open (pathname, O_WRONLY);
+      fileOpened -> bytesInWriteBuffer = 0;
   }
   else if (strcmp (mode, "rw") == 0)
   {
       fileDesc = open (pathname, O_RDWR);
+      fileOpened -> bytesInReadBuffer = 0;
+      fileOpened -> bytesInWriteBuffer = 0;
+      fileOpened -> fileSize = getFilesize (pathname);
   }
 
-  struct fileStruct *fileOpened = malloc (sizeof(struct fileStruct));
   fileOpened -> fD = fileDesc;
-  fileOpened -> bytesInBuffer = 0;
+
   return fileOpened;
 
   //still need to implement some stuff like
@@ -129,12 +143,12 @@ struct fileStruct *myopen (const char *pathname, const char *mode)
 
 int myclose (struct fileStruct *stream)
 {
-    if (stream->bytesInBuffer!=0)
+    if (stream->bytesInWriteBuffer!=0)
     {
-        if (stream->bytesInBuffer<=BUFFER_SIZE)
+        if (stream->bytesInWriteBuffer<=BUFFER_SIZE)
         {
             size_t closingBytesWritten =
-            write (stream->fD, stream->textBuffer ,stream->bytesInBuffer);
+            write (stream->fD, stream->writeBuffer ,stream->bytesInWriteBuffer);
                 printf ("Bytes written on closing: %zu\n",
                  closingBytesWritten);
         }
@@ -156,30 +170,31 @@ size_t mywrite (const char *buf, size_t size, struct fileStruct* stream)
     /*the code below is basicallyadding the text the user wants to write
     to the buffer of text also keeping track of that number of bytes*/
 
-    int bufferLength = stream->bytesInBuffer+strlen(buf);
+    int bufferLength = stream->bytesInWriteBuffer+strlen(buf);
 
     //when it doesn't send the number of bytes over 4096
     if (bufferLength<BUFFER_SIZE)
     {
         for (int i=0; i<strlen(buf);i++)
         {
-            stream->textBuffer[stream->bytesInBuffer+i] = *(buf+i);
+            stream->writeBuffer[stream->bytesInWriteBuffer+i] = *(buf+i);
         }
-        stream->bytesInBuffer+=strlen(buf);
+        stream->bytesInWriteBuffer+=strlen(buf);
     }
 
     //when the new my write call sends the bytes over 4096
     while (bufferLength>=BUFFER_SIZE)
     {
         //add bytes till buffer fills
-        for (int i=0; i<BUFFER_SIZE-(stream->bytesInBuffer);i++)
+        for (int i=0; i<BUFFER_SIZE-(stream->bytesInWriteBuffer);i++)
         {
-             stream->textBuffer[(stream->bytesInBuffer)+i] = *(buf+i);
+             stream->writeBuffer[(stream->bytesInWriteBuffer)+i] = *(buf+i);
         }
-        noOfBytesWritten += write (stream->fD, stream->textBuffer, BUFFER_SIZE);
-        //system call
-        stream->bytesInBuffer=0;
-        memset (stream->textBuffer, 0, sizeof (stream->textBuffer));
+
+        noOfBytesWritten += write (stream->fD, stream->writeBuffer, BUFFER_SIZE);
+
+        stream->bytesInWriteBuffer=0;
+        memset (stream->writeBuffer, 0, sizeof (stream->writeBuffer));
         //above two lines are clearing the buffer
         bufferLength = bufferLength - BUFFER_SIZE;
 
@@ -196,9 +211,9 @@ size_t mywrite (const char *buf, size_t size, struct fileStruct* stream)
     {
         for (int i=0, j = locationOfFirstExcessByte; j<strlen(buf); i++,j++)
         {
-            stream-> textBuffer[i] = *(buf+j);
+            stream-> writeBuffer[i] = *(buf+j);
         }
-        stream->bytesInBuffer = bufferLength;
+        stream->bytesInWriteBuffer = bufferLength;
     }
 
     else if (numberOfExcessBytes>=BUFFER_SIZE)
@@ -209,11 +224,21 @@ size_t mywrite (const char *buf, size_t size, struct fileStruct* stream)
     return noOfBytesWritten;
 }
 
-size_t myread (void *ptr, size_t size, size_t nmemb, struct fileStruct *stream)
+size_t myread (void *ptr, size_t size, struct fileStruct *stream)
 {
     //creates a buffer so that the sys call read is only
     //called when it's worth it - similar to mywrite
+    int noOfBytesRead = read (stream->fD, ptr, BUFFER_SIZE);
+
     return 0;
+}
+
+size_t getFilesize(const char* filename) {
+    struct stat st;
+    if(stat(filename, &st) != 0) {
+        return 0;
+    }
+    return st.st_size;
 }
 
 //other two functions myseek and myflush to be added still
