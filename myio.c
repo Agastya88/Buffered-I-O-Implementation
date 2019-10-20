@@ -122,7 +122,7 @@ struct fileStruct *myopen (const char *pathname, const char *mode)
   fileOpened -> bytesInBuffer = 0;
   return fileOpened;
 
-  //still need to figure out how to implement
+  //still need to implement some stuff like
   //the file creation flags specified - used in
   //exceptional situations like when there is an error
 }
@@ -131,7 +131,7 @@ int myclose (struct fileStruct *stream)
 {
     if (stream->bytesInBuffer!=0)
     {
-        if (stream->bytesInBuffer<=4096)
+        if (stream->bytesInBuffer<=BUFFER_SIZE)
         {
             size_t closingBytesWritten =
             write (stream->fD, stream->textBuffer ,stream->bytesInBuffer);
@@ -159,7 +159,7 @@ size_t mywrite (const char *buf, size_t size, struct fileStruct* stream)
     int bufferLength = stream->bytesInBuffer+strlen(buf);
 
     //when it doesn't send the number of bytes over 4096
-    if (bufferLength<4096)
+    if (bufferLength<BUFFER_SIZE)
     {
         for (int i=0; i<strlen(buf);i++)
         {
@@ -169,31 +169,42 @@ size_t mywrite (const char *buf, size_t size, struct fileStruct* stream)
     }
 
     //when the new my write call sends the bytes over 4096
-    else if (bufferLength>=4096)
+    while (bufferLength>=BUFFER_SIZE)
     {
         //add bytes till buffer fills
-        for (int i=0; i<4096-(stream->bytesInBuffer);i++)
+        for (int i=0; i<BUFFER_SIZE-(stream->bytesInBuffer);i++)
         {
              stream->textBuffer[(stream->bytesInBuffer)+i] = *(buf+i);
         }
-        noOfBytesWritten += write (stream->fD, stream->textBuffer, 4096);
+        noOfBytesWritten += write (stream->fD, stream->textBuffer, BUFFER_SIZE);
         //system call
         stream->bytesInBuffer=0;
         memset (stream->textBuffer, 0, sizeof (stream->textBuffer));
         //above two lines are clearing the buffer
-        bufferLength = bufferLength - 4096;
+        bufferLength = bufferLength - BUFFER_SIZE;
+
         //bufferLength is now the updated number of bytes to be written
         //in a way it is the excess bytes from "buf" that didn't get written
     }
 
+    int numberOfExcessBytes = bufferLength;
+
     //we need a way to add the excess bytes to the buffer
-    int locationOfFirstExcessByte = strlen(buf)-bufferLength;
-    printf ("locationOfFirstExcessByte %d\n", locationOfFirstExcessByte);
-    for (int i=0, j = locationOfFirstExcessByte; j<strlen(buf); i++,j++)
+    int  locationOfFirstExcessByte = strlen(buf)-bufferLength;
+
+    if (numberOfExcessBytes<BUFFER_SIZE)
     {
-        stream-> textBuffer[i] = *(buf+j);
+        for (int i=0, j = locationOfFirstExcessByte; j<strlen(buf); i++,j++)
+        {
+            stream-> textBuffer[i] = *(buf+j);
+        }
+        stream->bytesInBuffer = bufferLength;
     }
-    stream->bytesInBuffer = bufferLength;
+
+    else if (numberOfExcessBytes>=BUFFER_SIZE)
+    {
+        bufferLength = numberOfExcessBytes;
+    }
 
     return noOfBytesWritten;
 }
