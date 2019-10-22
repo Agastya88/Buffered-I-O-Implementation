@@ -10,13 +10,14 @@
 #include <sys/stat.h>
 #include "myio.h"
 
-#define BUFFER_SIZE 4096
+#define BUFFER_SIZE 1024
 
 struct fileStruct
 {
     int fD;
     char writeBuffer [BUFFER_SIZE];
     int bytesInWriteBuffer;
+    char *readTempStorage;
     int bytesInReadBuffer;
     int fileSize;
 };
@@ -24,7 +25,7 @@ struct fileStruct
 int main (int argc, char* argv[])
 {
 
-    struct fileStruct *fileOne = myopen ("randomFile.txt", "rw");
+    struct fileStruct *fileOne = myopen ("randomFile.txt", "w");
 
     //first text being written  using mywrite;
     // prints result and leftover bytes;
@@ -93,17 +94,64 @@ int main (int argc, char* argv[])
     printf ("mywrite callThree returns: %zu \n", bytesWrittenInCallThree);
     printf ("fileOne->bytesInWriteBuffer is: %d\n", fileOne->bytesInWriteBuffer);
 
-    //TEST: call myread on the file I just wrote to see if I can read it
-    char *readStorageLocation = malloc (fileOne -> fileSize);
-    size_t bytesReadInCallOne = myread (readStorageLocation,fileOne -> fileSize, fileOne);
-    printf ("myread callOne returns: %zu \n", bytesReadInCallOne);
-
     int closeResult = myclose (fileOne);
-    if (closeResult == 0)
+
+    if (closeResult == -1)
     {
-        printf ("File closed successfully. \n");
+        printf("Error Closing File.  Description:  %s\n", strerror(errno));
     }
 
+    else if (closeResult == 0)
+    {
+        printf ("File Closed Successfully.\n");
+    }
+
+    free (fileOne); //done with all operations on this file struct
+
+    //TEST: call myread on the file I just wrote to see if I can read it
+    struct fileStruct *fileTwo = myopen ("randomFile.txt", "r");
+
+
+    char *readStorageLocation = malloc (fileTwo -> fileSize);
+    //want to put the value of temp storage in here at the end
+
+    size_t bytesReadInCallOne = myread (fileTwo->readTempStorage, 173,
+         fileTwo); //trying to read 173 bytes from fileTwo into rSL
+    printf ("myread callOne returns: %zu \n", bytesReadInCallOne);
+    printf ("fileTwo->readTempStorage returns: %s\n", fileTwo->readTempStorage);
+
+    /*NOTE - LABEL XYZ: something I need to think about is whether I actually need to do
+    this accumulative read that I'm doing; because maybe fread should
+    just assume that the programmer is smart enough to figure out how
+    to pass their ptr in such a way that it accumulates if they want it
+    it too i.e. this probably isn't my worry and I can pass any ptr and that
+    is actually their responsibility.*/
+
+    size_t bytesReadInCallTwo = myread (fileTwo->readTempStorage, 1000,
+         fileTwo); //trying to read 173 bytes from fileTwo into rSL
+    printf ("myread callTwo returns: %zu \n", bytesReadInCallTwo);
+    printf ("fileTwo->readTempStorage returns: %s\n", fileTwo->readTempStorage);
+
+    int closeResultTwo = myclose (fileTwo);
+
+    if (closeResultTwo == -1)
+    {
+        printf("Error Closing File.  Description:  %s\n", strerror(errno));
+    }
+
+    else if (closeResultTwo == 0)
+    {
+        printf ("File Closed Successfully.\n");
+    }
+
+    printf ("fileTwo->readTempStorage returns: %s\n", fileTwo->readTempStorage);
+    //code doesn't really work on close because the fileTwo->readTempStorage is gone by now
+    //if I change to the NOTE LABELLED XYZ, I will probably need some way to keep
+    //track of the latest ptr i.e. place that the read bytes are supposed to go.
+
+    free (fileTwo);
+    //close file once I'm done reading
+    //free memory when done with all operations on the file
 }
 
 struct fileStruct *myopen (const char *pathname, const char *mode)
@@ -113,15 +161,19 @@ struct fileStruct *myopen (const char *pathname, const char *mode)
   int fileDesc;
   struct fileStruct *fileOpened = malloc (sizeof(struct fileStruct));
 
+  //determing file type
   if (strcmp (mode, "r") == 0)
   {
       fileDesc = open (pathname, O_RDONLY);
       fileOpened -> bytesInReadBuffer = 0;
+      fileOpened -> bytesInWriteBuffer = 0;
       fileOpened -> fileSize = getFilesize (pathname);
+      fileOpened -> readTempStorage = malloc (fileOpened -> fileSize);
   }
   else if (strcmp (mode, "w") == 0)
   {
       fileDesc = open (pathname, O_WRONLY);
+      fileOpened -> bytesInReadBuffer = 0;
       fileOpened -> bytesInWriteBuffer = 0;
   }
   else if (strcmp (mode, "rw") == 0)
@@ -130,6 +182,17 @@ struct fileStruct *myopen (const char *pathname, const char *mode)
       fileOpened -> bytesInReadBuffer = 0;
       fileOpened -> bytesInWriteBuffer = 0;
       fileOpened -> fileSize = getFilesize (pathname);
+  }
+
+  //checking if open is a success or failure
+  if (fileDesc==-1)
+  {
+      printf ("File Open Failed\n");
+      printf("Error Opening File.  Description:  %s\n", strerror(errno));
+  }
+  else
+  {
+      printf ("File Opened Successfully.\n");
   }
 
   fileOpened -> fD = fileDesc;
@@ -154,35 +217,40 @@ int myclose (struct fileStruct *stream)
         }
     }
 
-    free (stream);
-
+    if (stream->bytesInReadBuffer!=0)
+    {
+        if (stream->bytesInReadBuffer<=BUFFER_SIZE)
+        {
+            size_t closingBytesRead =read (stream->fD, stream->readTempStorage, stream->bytesInReadBuffer);
+            printf ("Bytes read on closing: %zu\n", closingBytesRead);
+        }
+    }
     return close (stream->fD);
 }
 
-size_t mywrite (const char *buf, size_t size, struct fileStruct* stream)
+size_t mywrite (const char *buf, size_t nmemb, struct fileStruct* stream)
 {
     /*creates a buffer so that the sys call write is only
-    called when "enough bytes" = 4096 or x (if x i.e. total
-    is less than 4096.*/
+    called when "enough bytes" accumulate*/
 
     size_t noOfBytesWritten=0;
 
-    /*the code below is basicallyadding the text the user wants to write
+    /*the code below is basically adding the text the user wants to write
     to the buffer of text also keeping track of that number of bytes*/
 
-    int bufferLength = stream->bytesInWriteBuffer+strlen(buf);
+    int bufferLength = stream->bytesInWriteBuffer+nmemb;
 
-    //when it doesn't send the number of bytes over 4096
+    //when it doesn't send the number of bytes over bufferSize
     if (bufferLength<BUFFER_SIZE)
     {
         for (int i=0; i<strlen(buf);i++)
         {
             stream->writeBuffer[stream->bytesInWriteBuffer+i] = *(buf+i);
         }
-        stream->bytesInWriteBuffer+=strlen(buf);
+        stream->bytesInWriteBuffer+=nmemb;
     }
 
-    //when the new my write call sends the bytes over 4096
+    //when the new my write call sends the bytes over bufferSize
     while (bufferLength>=BUFFER_SIZE)
     {
         //add bytes till buffer fills
@@ -205,11 +273,11 @@ size_t mywrite (const char *buf, size_t size, struct fileStruct* stream)
     int numberOfExcessBytes = bufferLength;
 
     //we need a way to add the excess bytes to the buffer
-    int  locationOfFirstExcessByte = strlen(buf)-bufferLength;
+    int  locationOfFirstExcessByte = nmemb-bufferLength;
 
     if (numberOfExcessBytes<BUFFER_SIZE)
     {
-        for (int i=0, j = locationOfFirstExcessByte; j<strlen(buf); i++,j++)
+        for (int i=0, j = locationOfFirstExcessByte; j<nmemb; i++,j++)
         {
             stream-> writeBuffer[i] = *(buf+j);
         }
@@ -224,13 +292,38 @@ size_t mywrite (const char *buf, size_t size, struct fileStruct* stream)
     return noOfBytesWritten;
 }
 
-size_t myread (void *ptr, size_t size, struct fileStruct *stream)
+size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
 {
-    //creates a buffer so that the sys call read is only
-    //called when it's worth it - similar to mywrite
-    int noOfBytesRead = read (stream->fD, ptr, BUFFER_SIZE);
+    //very similar logic to the write function
+    //only difference is in the parameters, etc. required
 
-    return 0;
+    size_t noOfBytesRead = 0;
+    int bufferLength = nmemb + stream->bytesInReadBuffer;
+
+    //when it doesn't send the number of bytes over bufferSize
+    if (bufferLength<BUFFER_SIZE)
+    {
+        stream->bytesInReadBuffer+=nmemb;
+    }
+
+    //when the myread call sends the bytes over bufferSize
+    while (bufferLength>=BUFFER_SIZE)
+    {
+
+        noOfBytesRead += read (stream->fD, ptr, BUFFER_SIZE);
+
+        ptr = ptr + BUFFER_SIZE*sizeof(char);
+
+        stream->bytesInReadBuffer=0;
+
+        bufferLength = bufferLength - BUFFER_SIZE;
+
+    }
+
+    stream -> bytesInReadBuffer = bufferLength;
+    //putting excess bytes into number of bytes to be read
+
+    return noOfBytesRead;
 }
 
 size_t getFilesize(const char* filename) {
