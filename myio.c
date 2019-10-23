@@ -17,8 +17,8 @@ struct fileStruct
     int fD;
     char writeBuffer [BUFFER_SIZE];
     int bytesInWriteBuffer;
-    char *readTempStorage;
-    int bytesInReadBuffer;
+    char readBuffer [BUFFER_SIZE];
+    int positionInReadBuffer;
     int fileSize;
 };
 
@@ -111,14 +111,15 @@ int main (int argc, char* argv[])
     //TEST: call myread on the file I just wrote to see if I can read it
     struct fileStruct *fileTwo = myopen ("randomFile.txt", "r");
 
+    char *readStorageLocation = malloc (173*sizeof(char));
+    char *readStorageLocation2 = malloc (1000*sizeof(char));
 
-    char *readStorageLocation = malloc (fileTwo -> fileSize);
     //want to put the value of temp storage in here at the end
 
-    size_t bytesReadInCallOne = myread (fileTwo->readTempStorage, 173,
+    size_t bytesReadInCallOne = myread (readStorageLocation, 173,
          fileTwo); //trying to read 173 bytes from fileTwo into rSL
     printf ("myread callOne returns: %zu \n", bytesReadInCallOne);
-    printf ("fileTwo->readTempStorage returns: %s\n", fileTwo->readTempStorage);
+    printf ("readStorageLocation returns: %s\n", readStorageLocation);
 
     /*NOTE - LABEL XYZ: something I need to think about is whether I actually need to do
     this accumulative read that I'm doing; because maybe fread should
@@ -127,10 +128,10 @@ int main (int argc, char* argv[])
     it too i.e. this probably isn't my worry and I can pass any ptr and that
     is actually their responsibility.*/
 
-    size_t bytesReadInCallTwo = myread (fileTwo->readTempStorage, 1000,
-         fileTwo); //trying to read 173 bytes from fileTwo into rSL
+    size_t bytesReadInCallTwo = myread (readStorageLocation2, 1000,
+         fileTwo); //trying to read 1000 bytes from fileTwo into rSL
     printf ("myread callTwo returns: %zu \n", bytesReadInCallTwo);
-    printf ("fileTwo->readTempStorage returns: %s\n", fileTwo->readTempStorage);
+    printf ("readStorageLocation2 returns: %s\n", readStorageLocation2);
 
     int closeResultTwo = myclose (fileTwo);
 
@@ -143,11 +144,6 @@ int main (int argc, char* argv[])
     {
         printf ("File Closed Successfully.\n");
     }
-
-    printf ("fileTwo->readTempStorage returns: %s\n", fileTwo->readTempStorage);
-    //code doesn't really work on close because the fileTwo->readTempStorage is gone by now
-    //if I change to the NOTE LABELLED XYZ, I will probably need some way to keep
-    //track of the latest ptr i.e. place that the read bytes are supposed to go.
 
     free (fileTwo);
     //close file once I'm done reading
@@ -168,7 +164,7 @@ struct fileStruct *myopen (const char *pathname, const char *mode)
       fileOpened -> bytesInReadBuffer = 0;
       fileOpened -> bytesInWriteBuffer = 0;
       fileOpened -> fileSize = getFilesize (pathname);
-      fileOpened -> readTempStorage = malloc (fileOpened -> fileSize);
+      fileOpened -> readStorageLocations = malloc (fileOpened -> fileSize);
   }
   else if (strcmp (mode, "w") == 0)
   {
@@ -221,7 +217,7 @@ int myclose (struct fileStruct *stream)
     {
         if (stream->bytesInReadBuffer<=BUFFER_SIZE)
         {
-            size_t closingBytesRead =read (stream->fD, stream->readTempStorage, stream->bytesInReadBuffer);
+            size_t closingBytesRead = read (stream->fD, stream->readStorageLocations, stream->bytesInReadBuffer);
             printf ("Bytes read on closing: %zu\n", closingBytesRead);
         }
     }
@@ -248,6 +244,7 @@ size_t mywrite (const char *buf, size_t nmemb, struct fileStruct* stream)
             stream->writeBuffer[stream->bytesInWriteBuffer+i] = *(buf+i);
         }
         stream->bytesInWriteBuffer+=nmemb;
+        noOfBytesWritten = nmemb;
     }
 
     //when the new my write call sends the bytes over bufferSize
@@ -294,34 +291,26 @@ size_t mywrite (const char *buf, size_t nmemb, struct fileStruct* stream)
 
 size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
 {
-    //very similar logic to the write function
-    //only difference is in the parameters, etc. required
+    //myRead front loads the operation, unlike myWrite; what this
+    //essentially means is that with the first call to myread
+    //we read for the full buffer size; and then we keep track
+    //of it according to the manner in which myRead is called
 
     size_t noOfBytesRead = 0;
-    int bufferLength = nmemb + stream->bytesInReadBuffer;
 
-    //when it doesn't send the number of bytes over bufferSize
-    if (bufferLength<BUFFER_SIZE)
-    {
-        stream->bytesInReadBuffer+=nmemb;
-    }
+    //if myread has never been called, then call read
 
-    //when the myread call sends the bytes over bufferSize
-    while (bufferLength>=BUFFER_SIZE)
-    {
+    //put the first nmemb bytes into the readBuffer;
+    //then keep track of positionInReadBuffer
 
-        noOfBytesRead += read (stream->fD, ptr, BUFFER_SIZE);
+    //read from the positionInReadBuffer until we reach the
+    //cap i.e. the BUFFER_SIZE'th bit; at this point, we want
+    //to call the read system call again
 
-        ptr = ptr + BUFFER_SIZE*sizeof(char);
-
-        stream->bytesInReadBuffer=0;
-
-        bufferLength = bufferLength - BUFFER_SIZE;
-
-    }
-
-    stream -> bytesInReadBuffer = bufferLength;
-    //putting excess bytes into number of bytes to be read
+    //so basically the readBuffer is always gonna be full,
+    //but using the positionTracker we can keep track of the
+    //myRead calls and then put the values into the pointers
+    //passed in by the calls as required.
 
     return noOfBytesRead;
 }
