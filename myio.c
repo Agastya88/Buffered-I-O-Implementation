@@ -25,6 +25,9 @@ struct fileStruct
 int main (int argc, char* argv[])
 {
 
+    printf ("\n");
+    printf ("------------WRITE TESTING BEGINS HERE-------------\n");
+
     struct fileStruct *fileOne = myopen ("randomFile.txt", "w");
 
     //first text being written  using mywrite;
@@ -108,30 +111,29 @@ int main (int argc, char* argv[])
 
     free (fileOne); //done with all operations on this file struct
 
+    printf ("------------WRITE TESTING ENDS HERE-------------\n");
+    printf ("\n");
+    printf ("------------READ TESTING BEGINS HERE-------------\n");
+
     //TEST: call myread on the file I just wrote to see if I can read it
     struct fileStruct *fileTwo = myopen ("randomFile.txt", "r");
 
-    char *readStorageLocation = malloc (173*sizeof(char));
-    char *readStorageLocation2 = malloc (1000*sizeof(char));
+    char *readPtr = malloc (173*sizeof(char));
+    char *readPtr2 = malloc (1000*sizeof(char));
 
-    //want to put the value of temp storage in here at the end
-
-    size_t bytesReadInCallOne = myread (readStorageLocation, 173,
+    size_t bytesReadInCallOne = myread (readPtr, 173,
          fileTwo); //trying to read 173 bytes from fileTwo into rSL
     printf ("myread callOne returns: %zu \n", bytesReadInCallOne);
-    printf ("readStorageLocation returns: %s\n", readStorageLocation);
+    printf ("readPtr returns: %s\n", readPtr);
 
-    /*NOTE - LABEL XYZ: something I need to think about is whether I actually need to do
-    this accumulative read that I'm doing; because maybe fread should
-    just assume that the programmer is smart enough to figure out how
-    to pass their ptr in such a way that it accumulates if they want it
-    it too i.e. this probably isn't my worry and I can pass any ptr and that
-    is actually their responsibility.*/
+    free (readPtr);
 
-    size_t bytesReadInCallTwo = myread (readStorageLocation2, 1000,
+    size_t bytesReadInCallTwo = myread (readPtr2, 1000,
          fileTwo); //trying to read 1000 bytes from fileTwo into rSL
     printf ("myread callTwo returns: %zu \n", bytesReadInCallTwo);
-    printf ("readStorageLocation2 returns: %s\n", readStorageLocation2);
+    printf ("readPtr2 returns: %s\n", readPtr2);
+
+    free (readPtr2);
 
     int closeResultTwo = myclose (fileTwo);
 
@@ -148,6 +150,9 @@ int main (int argc, char* argv[])
     free (fileTwo);
     //close file once I'm done reading
     //free memory when done with all operations on the file
+
+    printf ("------------READ TESTING ENDS HERE-------------\n");
+    printf ("\n");
 }
 
 struct fileStruct *myopen (const char *pathname, const char *mode)
@@ -161,23 +166,20 @@ struct fileStruct *myopen (const char *pathname, const char *mode)
   if (strcmp (mode, "r") == 0)
   {
       fileDesc = open (pathname, O_RDONLY);
-      fileOpened -> bytesInReadBuffer = 0;
+      fileOpened -> positionInReadBuffer = 0;
       fileOpened -> bytesInWriteBuffer = 0;
-      fileOpened -> fileSize = getFilesize (pathname);
-      fileOpened -> readStorageLocations = malloc (fileOpened -> fileSize);
   }
   else if (strcmp (mode, "w") == 0)
   {
       fileDesc = open (pathname, O_WRONLY);
-      fileOpened -> bytesInReadBuffer = 0;
+      fileOpened -> positionInReadBuffer = 0;
       fileOpened -> bytesInWriteBuffer = 0;
   }
   else if (strcmp (mode, "rw") == 0)
   {
       fileDesc = open (pathname, O_RDWR);
-      fileOpened -> bytesInReadBuffer = 0;
+      fileOpened -> positionInReadBuffer = 0;
       fileOpened -> bytesInWriteBuffer = 0;
-      fileOpened -> fileSize = getFilesize (pathname);
   }
 
   //checking if open is a success or failure
@@ -213,12 +215,11 @@ int myclose (struct fileStruct *stream)
         }
     }
 
-    if (stream->bytesInReadBuffer!=0)
+    if (stream->positionInReadBuffer!=0)
     {
-        if (stream->bytesInReadBuffer<=BUFFER_SIZE)
+        if (stream->positionInReadBuffer<=BUFFER_SIZE)
         {
-            size_t closingBytesRead = read (stream->fD, stream->readStorageLocations, stream->bytesInReadBuffer);
-            printf ("Bytes read on closing: %zu\n", closingBytesRead);
+
         }
     }
     return close (stream->fD);
@@ -296,31 +297,129 @@ size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
     //we read for the full buffer size; and then we keep track
     //of it according to the manner in which myRead is called
 
-    size_t noOfBytesRead = 0;
+    int noOfBytesRead = 0;
 
-    //if myread has never been called, then call read
+    //if there is no front loaded read call
+    if (stream->positionInReadBuffer == 0)
+    {
+        if (nmemb <= BUFFER_SIZE)
+        {
+            size_t sysCallReturnValue = read (stream->fD, stream -> readBuffer, BUFFER_SIZE);
+            if (sysCallReturnValue == -1)
+            {
+                printf ("Error in myread functionality.\n");
+            }
+            //value will be used in checking for sys call success/failer
+            for (int i=0; i<nmemb;i++)
+            {
+                *(ptr+i) = stream->readBuffer [i];
+                stream->positionInReadBuffer = i;
+                noOfBytesRead++;
+            }
+        }
 
-    //put the first nmemb bytes into the readBuffer;
-    //then keep track of positionInReadBuffer
+        while (nmemb>BUFFER_SIZE)
+        {
+            size_t sysCallReturnValue = read (stream->fD, stream -> readBuffer, BUFFER_SIZE);
+            if (sysCallReturnValue == -1)
+            {
+                printf ("Error in myread functionality.\n");
+            }
 
-    //read from the positionInReadBuffer until we reach the
-    //cap i.e. the BUFFER_SIZE'th bit; at this point, we want
-    //to call the read system call again
+            for (int i=0;i<BUFFER_SIZE; i++)
+            {
+                *(ptr+i) = stream->readBuffer [stream->positionInReadBuffer];
+                stream->positionInReadBuffer++;
+                noOfBytesRead++;
+            }
 
-    //so basically the readBuffer is always gonna be full,
-    //but using the positionTracker we can keep track of the
-    //myRead calls and then put the values into the pointers
-    //passed in by the calls as required.
+            nmemb = nmemb - BUFFER_SIZE;
+
+            if (nmemb <= BUFFER_SIZE)
+            {
+                size_t sysCallReturnValue = read (stream->fD, stream -> readBuffer, BUFFER_SIZE);
+                if (sysCallReturnValue == -1)
+                {
+                    printf ("Error in myread functionality.\n");
+                }
+                //value will be used in checking for sys call success/failer
+                for (int i=0; i<nmemb;i++)
+                {
+                    *(ptr+i) = stream->readBuffer [i];
+                    stream->positionInReadBuffer = i;
+                    noOfBytesRead++;
+                }
+            }
+        }
+
+    }
+
+    //if there is a front loaded read call
+    else
+    {
+        int bytesThatCanBeReadWithoutSysCall = BUFFER_SIZE - stream -> positionInReadBuffer;
+
+        if (bytesThatCanBeReadWithoutSysCall>=nmemb)
+        //then simply just give them what they want
+        {
+            for (int j=0; j<nmemb; stream->positionInReadBuffer++, j++)
+            {
+                *(ptr+j) = stream->readBuffer [stream->positionInReadBuffer];
+                noOfBytesRead++;
+            }
+        }
+
+        else if (bytesThatCanBeReadWithoutSysCall<nmemb)
+        //now you cannot just give them what they want, because you
+        //don't have it, so you need a sys call
+        {
+            //first give them the ones that are already in the buffer
+            for (int j=0; j<bytesThatCanBeReadWithoutSysCall; stream->positionInReadBuffer++, j++)
+            {
+                *(ptr+j) = stream->readBuffer [stream->positionInReadBuffer];
+                noOfBytesRead++;
+            }
+
+            //then give them the ones that require sys calls
+            int noOfBytesThatStillNeedToBeRead = nmemb - bytesThatCanBeReadWithoutSysCall;
+            stream -> positionInReadBuffer = 0;
+            int updateValForPtrLocation = bytesThatCanBeReadWithoutSysCall;
+
+            if (noOfBytesThatStillNeedToBeRead <= BUFFER_SIZE)
+            {
+                size_t sysCallReturnValue = read (stream->fD, stream -> readBuffer, BUFFER_SIZE);
+                if (sysCallReturnValue == -1)
+                {
+                    printf ("Error in myread functionality.\n");
+                }
+
+                for (int j=updateValForPtrLocation;
+                    stream->positionInReadBuffer<noOfBytesThatStillNeedToBeRead;
+                    stream->positionInReadBuffer++, j++)
+                {
+                    *(ptr+j) = stream -> readBuffer [stream->positionInReadBuffer];
+                    noOfBytesRead++;
+                }
+            }
+
+            else
+            {
+                //here I can just give them what they want directly use the system
+                //call since they want more than the buffer_size, thus making it
+                //more efficient
+                ptr = ptr+ updateValForPtrLocation*(sizeof(char));
+                size_t sysCallReturnValue = read (stream->fD, ptr, noOfBytesThatStillNeedToBeRead);
+                noOfBytesRead = noOfBytesThatStillNeedToBeRead;
+                if (sysCallReturnValue == -1)
+                {
+                    printf ("Error in myread functionality.\n");
+                }
+                stream->positionInReadBuffer = 0;
+            }
+        }
+    }
 
     return noOfBytesRead;
-}
-
-size_t getFilesize(const char* filename) {
-    struct stat st;
-    if(stat(filename, &st) != 0) {
-        return 0;
-    }
-    return st.st_size;
 }
 
 //other two functions myseek and myflush to be added still
