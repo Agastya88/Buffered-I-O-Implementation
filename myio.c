@@ -165,19 +165,19 @@ struct fileStruct *myopen (const char *pathname, const char *mode)
   //determing file type
   if (strcmp (mode, "r") == 0)
   {
-      fileDesc = open (pathname, O_RDONLY);
+      fileDesc = open (pathname, O_RDONLY, 0666);
       fileOpened -> positionInReadBuffer = 0;
       fileOpened -> bytesInWriteBuffer = 0;
   }
   else if (strcmp (mode, "w") == 0)
   {
-      fileDesc = open (pathname, O_WRONLY);
+      fileDesc = open (pathname, O_WRONLY| O_CREAT | O_TRUNC, 0666);
       fileOpened -> positionInReadBuffer = 0;
       fileOpened -> bytesInWriteBuffer = 0;
   }
   else if (strcmp (mode, "rw") == 0)
   {
-      fileDesc = open (pathname, O_RDWR);
+      fileDesc = open (pathname, O_RDWR| O_CREAT | O_TRUNC, 0666);
       fileOpened -> positionInReadBuffer = 0;
       fileOpened -> bytesInWriteBuffer = 0;
   }
