@@ -202,17 +202,42 @@ struct fileStruct *myopen (const char *pathname, const char *mode)
   //exceptional situations like when there is an error
 }
 
+int myflush (struct fileStruct *stream)
+{
+  size_t closingBytesWritten;
+
+  if (stream->bytesInWriteBuffer!=0)
+  {
+      if (stream->bytesInWriteBuffer<=BUFFER_SIZE)
+      {
+          closingBytesWritten =
+          write (stream->fD, stream->writeBuffer ,stream->bytesInWriteBuffer);
+              printf ("Bytes written on flushing: %zu\n",
+               closingBytesWritten);
+      }
+  }
+
+  if (closingBytesWritten==-1)
+  {
+    return EOF;
+  }
+
+  else
+  {
+    return 0;
+  }
+
+}
+
 int myclose (struct fileStruct *stream)
 {
-    if (stream->bytesInWriteBuffer!=0)
+
+    printf ("Calling myflush On Closing.\n");
+    int flushResult = myflush (stream);
+
+    if (flushResult != 0)
     {
-        if (stream->bytesInWriteBuffer<=BUFFER_SIZE)
-        {
-            size_t closingBytesWritten =
-            write (stream->fD, stream->writeBuffer ,stream->bytesInWriteBuffer);
-                printf ("Bytes written on closing: %zu\n",
-                 closingBytesWritten);
-        }
+      printf ("myFlush Failed During Closing\n");
     }
 
     if (stream->positionInReadBuffer!=0)
@@ -422,4 +447,7 @@ size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
     return noOfBytesRead;
 }
 
-//other two functions myseek and myflush to be added still
+int myseek(FILE *stream, long offset, int whence);
+{
+
+}
