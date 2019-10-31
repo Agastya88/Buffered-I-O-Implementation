@@ -1,4 +1,10 @@
-#include "myio.c"
+#include "myio.h"
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <stdlib.h>
+
+//This program tests the functionality of read and write individually.
 
 int main (int argc, char* argv[])
 {

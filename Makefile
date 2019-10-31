@@ -1,8 +1,16 @@
 CFLAGS=-g -Wall -pedantic
 
-myio: myio.c
-	gcc $(CFLAGS) -o myio myio.c
+PROGS=myio testCode
+
+myInputOutput: myio.o testCode.o
+		gcc -o myInputOutput myio.o testCode.o
+
+myio.o: myio.c
+		gcc $(CFLAGS) -c -o myio.o myio.c
+
+testCode.o: testCode.c
+		gcc $(CFLAGS) -c -o testCode.o testCode.c
 
 .PHONY: clean
 clean:
-	rm -f myls
+	rm -f *.o $(PROGS)

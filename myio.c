@@ -10,18 +10,6 @@
 #include <sys/stat.h>
 #include "myio.h"
 
-#define BUFFER_SIZE 1024
-
-struct fileStruct
-{
-    int fD;
-    char writeBuffer [BUFFER_SIZE];
-    int bytesInWriteBuffer;
-    char readBuffer [BUFFER_SIZE];
-    int positionInReadBuffer;
-    int fileSize;
-};
-
 struct fileStruct *myopen (const char *pathname, const char *mode)
 {
   //creates an environment where read and write can function properly;
@@ -108,6 +96,7 @@ int myclose (struct fileStruct *stream)
     }
 
     return close (stream->fD);
+
 }
 
 size_t mywrite (const char *buf, size_t nmemb, struct fileStruct* stream)
@@ -307,7 +296,7 @@ size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
     return noOfBytesRead;
 }
 
-int myseek(FILE *stream, long offset, int whence)
+int myseek(struct fileStruct *stream, long offset, int whence)
 {
   //so how this function is works is by adjusting the offset for read/writeBuffer
 
@@ -325,7 +314,7 @@ int myseek(FILE *stream, long offset, int whence)
 
   //other two functions myseek and myflush to be added still
 
-  //the file offset is determined by the type of the file; in a read only file 
+  //the file offset is determined by the type of the file; in a read only file
   //it is the positionInReadBuffer; in a write only file it is the positionInWriteBuffer;
   //for a read-write file it is the positionInRWBuffer (still to be made by while
   //working with read and write together)
