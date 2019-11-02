@@ -12,7 +12,7 @@ int main (int argc, char* argv[])
     printf ("\n");
     printf ("------------WRITE TESTING BEGINS HERE-------------\n");
 
-    struct fileStruct *fileOne = myopen ("randomFile.txt", "w");
+    struct fileStruct *fileOne = myopen ("workingFile.txt", "w");
 
     //first text being written  using mywrite;
     // prints result and leftover bytes;
@@ -100,7 +100,7 @@ int main (int argc, char* argv[])
     printf ("------------READ TESTING BEGINS HERE-------------\n");
 
     //TEST: call myread on the file I just wrote to see if I can read it
-    struct fileStruct *fileTwo = myopen ("randomFile.txt", "r");
+    struct fileStruct *fileTwo = myopen ("workingFile.txt", "r");
 
     char *readPtr = malloc (173*sizeof(char));
     char *readPtr2 = malloc (1000*sizeof(char));

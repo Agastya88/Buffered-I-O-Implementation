@@ -71,12 +71,14 @@ int myflush (struct fileStruct *stream)
   {
       if (stream->bytesInWriteBuffer<=BUFFER_SIZE)
       {
-          closingBytesWritten =
-          write (stream->fD, stream->writeBuffer ,stream->bytesInWriteBuffer);
-              printf ("Bytes written on flushing: %zu\n",
-               closingBytesWritten);
+          closingBytesWritten
+          = write (stream->fD, stream->writeBuffer ,stream->bytesInWriteBuffer);
       }
   }
+
+  stream->bytesInWriteBuffer = 0;
+  memset (stream->writeBuffer, 0, sizeof (stream->writeBuffer));
+  //clearing buffer
 
   if (closingBytesWritten==-1)
   {
@@ -179,6 +181,15 @@ size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
 
     int noOfBytesRead = 0;
 
+    printf ("Calling myflush Before Reading.\n");
+    //incase file is both read and write
+    int flushResult = myflush (stream);
+
+    if (flushResult != 0)
+    {
+      printf ("myFlush Failed During Closing\n");
+    }
+
     //if there is no front loaded read call
     if (stream->positionInReadBuffer == 0)
     {
@@ -189,7 +200,7 @@ size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
             {
                 printf ("Error in myread functionality.\n");
             }
-            //value will be used in checking for sys call success/failer
+            //value will be used in checking for sys call success/failure
             for (int i=0; i<nmemb;i++)
             {
                 *(ptr+i) = stream->readBuffer [i];
