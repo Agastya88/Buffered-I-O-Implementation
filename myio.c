@@ -205,9 +205,12 @@ size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
             {
                 for (int i=0; i<nmemb;i++)
                 {
-                    *(ptr+i) = stream->readBuffer [i];
-                    stream->positionInReadBuffer = i;
-                    noOfBytesRead++;
+                    if (stream->readBuffer[i] != '\0')
+                    {
+                      *(ptr+i) = stream->readBuffer [i];
+                      stream->positionInReadBuffer = i;
+                      noOfBytesRead++;
+                    }
                 }
             }
           }
@@ -224,9 +227,12 @@ size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
             {
                 for (int i=0;i<BUFFER_SIZE; i++)
                 {
-                    *(ptr+i) = stream->readBuffer [stream->positionInReadBuffer];
-                    stream->positionInReadBuffer++;
-                    noOfBytesRead++;
+                  if (stream->readBuffer [stream->positionInReadBuffer] != '\0')
+                  {
+                      *(ptr+i) = stream->readBuffer [stream->positionInReadBuffer];
+                      stream->positionInReadBuffer++;
+                      noOfBytesRead++;
+                  }
                 }
                 continue;
             }
@@ -246,9 +252,12 @@ size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
                 {
                     for (int i=0; i<nmemb;i++)
                     {
+                      if (stream->readBuffer [i] != '\0')
+                      {
                         *(ptr+i) = stream->readBuffer [i];
                         stream->positionInReadBuffer = i;
                         noOfBytesRead++;
+                      }
                     }
                 }
             }
@@ -326,7 +335,11 @@ size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
 
 int myseek(struct fileStruct *stream, long offset, int whence)
 {
-  //so how this function is works is by adjusting the offset for read/writeBuffer
+  //so how this function works is by adjusting the offset for read/writeBuffer
+  //as well as the file offset buffer
+
+  int offsetValue;
+  offsetValue = lseek (stream->fD, offset, whence);
 
   //if the offset asked for changes location to some bytes that I have, then I
   //do not need to make a system call to lseek, I can just change my position in the
@@ -346,5 +359,6 @@ int myseek(struct fileStruct *stream, long offset, int whence)
   //it is the positionInReadBuffer; in a write only file it is the positionInWriteBuffer;
   //for a read-write file it is the positionInRWBuffer (still to be made by while
   //working with read and write together)
-  return 0;
+
+  return offsetValue;
 }
