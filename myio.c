@@ -338,8 +338,36 @@ int myseek(struct fileStruct *stream, long offset, int whence)
   //so how this function works is by adjusting the offset for read/writeBuffer
   //as well as the file offset buffer
 
-  int offsetValue;
-  offsetValue = lseek (stream->fD, offset, whence);
+  //let's say the file is a read only file
+  if (whence == SEEK_CUR)
+  {
+    if (stream->positionInReadBuffer+=offset<BUFFER_SIZE)
+    {
+      stream->positionInReadBuffer += offset;
+      return 0;
+    }
+    else if (stream->positionInReadBuffer+=offset<0)
+    {
+      lseek (stream->fD, offset, whence);
+      stream->positionInReadBuffer = BUFFER_SIZE-(stream->positionInReadBuffer+offset);
+      return 0;
+    }
+    else
+    {
+      size_t sysCallReturnValue = read (stream->fD, stream -> readBuffer, BUFFER_SIZE);
+      if (sysCallReturnValue == -1)
+      {
+          printf ("Error in myread functionality.\n");
+      }
+      stream->positionInReadBuffer = stream->positionInReadBuffer+offset - BUFFER_SIZE;
+      return 0;
+    }
+  }
+
+  else if (whence == SEEK_SET)
+  {
+    stream->positionInReadBuffer = offset;
+  }
 
   //if the offset asked for changes location to some bytes that I have, then I
   //do not need to make a system call to lseek, I can just change my position in the
@@ -360,5 +388,5 @@ int myseek(struct fileStruct *stream, long offset, int whence)
   //for a read-write file it is the positionInRWBuffer (still to be made by while
   //working with read and write together)
 
-  return offsetValue;
+  return 1;
 }

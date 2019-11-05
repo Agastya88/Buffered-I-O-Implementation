@@ -112,6 +112,8 @@ int main (int argc, char* argv[])
 
     free (readPtr);
 
+    printf ("call to seek returns %d\n", myseek (fileTwo, 975, SEEK_CUR));
+
     size_t bytesReadInCallTwo = myread (readPtr2, 1000,
          fileTwo); //trying to read 1000 bytes from fileTwo into rSL
     printf ("myread callTwo returns: %zu \n", bytesReadInCallTwo);
