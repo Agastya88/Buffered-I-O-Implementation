@@ -200,14 +200,17 @@ size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
             {
                 printf ("Error in myread functionality.\n");
             }
-            //value will be used in checking for sys call success/failure
-            for (int i=0; i<nmemb;i++)
+
+            if (sysCallReturnValue != 0)
             {
-                *(ptr+i) = stream->readBuffer [i];
-                stream->positionInReadBuffer = i;
-                noOfBytesRead++;
+                for (int i=0; i<nmemb;i++)
+                {
+                    *(ptr+i) = stream->readBuffer [i];
+                    stream->positionInReadBuffer = i;
+                    noOfBytesRead++;
+                }
             }
-        }
+          }
 
         while (nmemb>BUFFER_SIZE)
         {
@@ -217,11 +220,15 @@ size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
                 printf ("Error in myread functionality.\n");
             }
 
-            for (int i=0;i<BUFFER_SIZE; i++)
+            if (sysCallReturnValue != 0)
             {
-                *(ptr+i) = stream->readBuffer [stream->positionInReadBuffer];
-                stream->positionInReadBuffer++;
-                noOfBytesRead++;
+                for (int i=0;i<BUFFER_SIZE; i++)
+                {
+                    *(ptr+i) = stream->readBuffer [stream->positionInReadBuffer];
+                    stream->positionInReadBuffer++;
+                    noOfBytesRead++;
+                }
+                continue;
             }
 
             nmemb = nmemb - BUFFER_SIZE;
@@ -229,16 +236,20 @@ size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
             if (nmemb <= BUFFER_SIZE)
             {
                 size_t sysCallReturnValue = read (stream->fD, stream -> readBuffer, BUFFER_SIZE);
+
                 if (sysCallReturnValue == -1)
                 {
                     printf ("Error in myread functionality.\n");
                 }
-                //value will be used in checking for sys call success/failer
-                for (int i=0; i<nmemb;i++)
+
+                if (sysCallReturnValue !=0)
                 {
-                    *(ptr+i) = stream->readBuffer [i];
-                    stream->positionInReadBuffer = i;
-                    noOfBytesRead++;
+                    for (int i=0; i<nmemb;i++)
+                    {
+                        *(ptr+i) = stream->readBuffer [i];
+                        stream->positionInReadBuffer = i;
+                        noOfBytesRead++;
+                    }
                 }
             }
         }
@@ -335,6 +346,5 @@ int myseek(struct fileStruct *stream, long offset, int whence)
   //it is the positionInReadBuffer; in a write only file it is the positionInWriteBuffer;
   //for a read-write file it is the positionInRWBuffer (still to be made by while
   //working with read and write together)
-
   return 0;
 }
