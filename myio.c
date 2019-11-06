@@ -65,13 +65,13 @@ struct fileStruct *myopen (const char *pathname, const char *mode)
 
 int myflush (struct fileStruct *stream)
 {
-  size_t closingBytesWritten;
+  size_t flushingBytesWritten;
 
   if (stream->bytesInWriteBuffer!=0)
   {
       if (stream->bytesInWriteBuffer<=BUFFER_SIZE)
       {
-          closingBytesWritten
+          flushingBytesWritten
           = write (stream->fD, stream->writeBuffer ,stream->bytesInWriteBuffer);
       }
   }
@@ -80,7 +80,7 @@ int myflush (struct fileStruct *stream)
   memset (stream->writeBuffer, 0, sizeof (stream->writeBuffer));
   //clearing buffer
 
-  if (closingBytesWritten==-1)
+  if (flushingBytesWritten==-1)
   {
     return EOF;
   }
@@ -95,7 +95,6 @@ int myflush (struct fileStruct *stream)
 int myclose (struct fileStruct *stream)
 {
 
-    printf ("Calling myflush On Closing.\n");
     int flushResult = myflush (stream);
 
     if (flushResult != 0)
@@ -181,13 +180,14 @@ size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
 
     int noOfBytesRead = 0;
 
-    printf ("Calling myflush Before Reading.\n");
-    //incase file is both read and write
+    //incase file is both read and write, we call flush
+    //before starting the read on the file
+
     int flushResult = myflush (stream);
 
     if (flushResult != 0)
     {
-      printf ("myFlush Failed During Closing\n");
+      printf ("myFlush Failed During Reading\n");
     }
 
     //if there is no front loaded read call
@@ -338,55 +338,65 @@ int myseek(struct fileStruct *stream, long offset, int whence)
   //so how this function works is by adjusting the offset for read/writeBuffer
   //as well as the file offset buffer
 
-  //let's say the file is a read only file
+  //working on the read buffer for seek_cur
   if (whence == SEEK_CUR)
   {
-    if (stream->positionInReadBuffer+=offset<BUFFER_SIZE)
+    if (stream->positionInReadBuffer+offset<0)
+    {
+      int rOffset = lseek (stream->fD, offset, SEEK_CUR);
+      if (rOffset == -1)
+      {
+        return -1;
+      }
+      stream->positionInReadBuffer = 0;
+      return 0;
+    }
+    else if (stream->positionInReadBuffer+offset<BUFFER_SIZE)
     {
       stream->positionInReadBuffer += offset;
       return 0;
     }
-    else if (stream->positionInReadBuffer+=offset<0)
+    else if (stream->positionInReadBuffer+offset>BUFFER_SIZE)
     {
-      lseek (stream->fD, offset, whence);
-      stream->positionInReadBuffer = BUFFER_SIZE-(stream->positionInReadBuffer+offset);
-      return 0;
-    }
-    else
-    {
-      size_t sysCallReturnValue = read (stream->fD, stream -> readBuffer, BUFFER_SIZE);
-      if (sysCallReturnValue == -1)
+      int rOffset = lseek (stream->fD, stream->positionInReadBuffer+offset, SEEK_SET);
+      stream->positionInReadBuffer = 0;
+      if (rOffset == -1)
       {
-          printf ("Error in myread functionality.\n");
+        return -1;
       }
-      stream->positionInReadBuffer = stream->positionInReadBuffer+offset - BUFFER_SIZE;
       return 0;
     }
   }
 
+  //seek_set for read and write buffers together
   else if (whence == SEEK_SET)
   {
-    stream->positionInReadBuffer = offset;
+
+    int flushResult = myflush (stream);
+
+    if (flushResult != 0)
+    {
+      printf ("myFlush Failed During Seeking\n");
+      return -1;
+    }
+
+    int rOffset = lseek (stream->fD, offset, SEEK_SET);
+    if (rOffset == -1)
+    {
+      return -1;
+    }
+
+    //resetting read at this position
+    stream->positionInReadBuffer = 0;
+
+    //resetting write buffer at this position
+    stream->bytesInWriteBuffer = 0;
+    memset (stream->writeBuffer, 0, sizeof (stream->writeBuffer));
+
+    return 0;
+
   }
 
-  //if the offset asked for changes location to some bytes that I have, then I
-  //do not need to make a system call to lseek, I can just change my position in the
-  //bufferSize
+  return -1;
 
-  //if the offset puts me into some area I do not know of, then I need to make
-  //a call to lseek and get to this new area of memory
-
-  //whence = SEEK_SET - the file offset is set to offset bytes
-
-  //whence = SEEK_CUR - the file offset is set to it's current location
-  //plus offset bytes
-
-  //other two functions myseek and myflush to be added still
-
-  //the file offset is determined by the type of the file; in a read only file
-  //it is the positionInReadBuffer; in a write only file it is the positionInWriteBuffer;
-  //for a read-write file it is the positionInRWBuffer (still to be made by while
-  //working with read and write together)
-
-  return 1;
 }
