@@ -67,6 +67,25 @@ int main (int argc, char* argv[])
   printf ("myread callFive returns: %zu \n", bytesReadInCallFive);
   printf ("readPtr5 returns: %s\n", readPtr5);
 
+  // prints result and leftover bytes;
+  char *textToWrite = "This article is the intellectual property of Wired.com";
+  size_t bytesWrittenInCallOne;
+  bytesWrittenInCallOne = mywrite (textToWrite, strlen(textToWrite), fileOne);
+  printf ("mywrite callOne returns: %zu \n", bytesWrittenInCallOne);
+  printf ("fileOne->bytesInWriteBuffer is: %d\n", fileOne->bytesInWriteBuffer);
+
+  int seekReturn4 = myseek (fileOne, -20, SEEK_CUR);
+  if (seekReturn4 == -1)
+  {
+    printf ("myseek failed");
+  }
+
+  char *readPtr6 = malloc (10*sizeof(char));
+  size_t bytesReadInCallSix = myread (readPtr6, 10,
+       fileOne);
+  printf ("myread callFix returns: %zu \n", bytesReadInCallSix);
+  printf ("readPtr6 returns: %s\n", readPtr6);
+
   myclose (fileOne);
 
 }

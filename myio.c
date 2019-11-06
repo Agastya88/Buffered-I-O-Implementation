@@ -96,7 +96,6 @@ int myclose (struct fileStruct *stream)
 {
 
     int flushResult = myflush (stream);
-
     if (flushResult != 0)
     {
       printf ("myFlush Failed During Closing\n");
@@ -184,7 +183,6 @@ size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
     //before starting the read on the file
 
     int flushResult = myflush (stream);
-
     if (flushResult != 0)
     {
       printf ("myFlush Failed During Reading\n");
@@ -335,12 +333,17 @@ size_t myread (char *ptr, size_t nmemb, struct fileStruct *stream)
 
 int myseek(struct fileStruct *stream, long offset, int whence)
 {
-  //so how this function works is by adjusting the offset for read/writeBuffer
-  //as well as the file offset buffer
 
-  //working on the read buffer for seek_cur
+  int flushResult = myflush (stream);
+  if (flushResult != 0)
+  {
+    printf ("myFlush Failed During Seeking\n");
+    return -1;
+  }
+
   if (whence == SEEK_CUR)
   {
+    //working on the read buffer for seek_cur
     if (stream->positionInReadBuffer+offset<0)
     {
       int rOffset = lseek (stream->fD, offset, SEEK_CUR);
@@ -372,14 +375,6 @@ int myseek(struct fileStruct *stream, long offset, int whence)
   else if (whence == SEEK_SET)
   {
 
-    int flushResult = myflush (stream);
-
-    if (flushResult != 0)
-    {
-      printf ("myFlush Failed During Seeking\n");
-      return -1;
-    }
-
     int rOffset = lseek (stream->fD, offset, SEEK_SET);
     if (rOffset == -1)
     {
@@ -394,7 +389,6 @@ int myseek(struct fileStruct *stream, long offset, int whence)
     memset (stream->writeBuffer, 0, sizeof (stream->writeBuffer));
 
     return 0;
-
   }
 
   return -1;
