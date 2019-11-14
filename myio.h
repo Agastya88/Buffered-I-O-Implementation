@@ -1,8 +1,8 @@
 #include <sys/types.h>
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 20
 
-struct fileStruct
+struct file
 {
     int fD;
     char writeBuffer [BUFFER_SIZE];
@@ -12,9 +12,9 @@ struct fileStruct
     int fileSize;
 };
 
-struct fileStruct *myopen (const char *pathname, const char *mode);
-int myclose (struct fileStruct *stream);
-size_t myread (char *ptr, size_t nmmemb, struct fileStruct *stream);
-size_t mywrite (const char *buf, size_t nmemb, struct fileStruct *stream);
-int myflush (struct fileStruct *stream);
-int myseek(struct fileStruct *stream, long offset, int whence);
+struct file *myopen (const char *pathname, const char *mode);
+int myclose (struct file *stream);
+size_t myread (char *ptr, size_t nmmemb, struct file *stream);
+size_t mywrite (const char *buf, size_t nmemb, struct file *stream);
+int myflush (struct file *stream);
+int myseek(struct file *stream, long offset, int whence);

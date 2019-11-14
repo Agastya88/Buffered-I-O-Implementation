@@ -12,8 +12,8 @@
 int main (int argc, char* argv[])
 {
 
-  struct fileStruct *fileOne = myopen ("workingFile2.txt", "r+");
-
+  struct file *fileOne = myopen ("workingFile2.txt", "r+");
+  
   //reading 160 bytes of data
   char *readPtr = malloc (160*sizeof(char));
   size_t bytesReadInCallOne = myread (readPtr, 160,
