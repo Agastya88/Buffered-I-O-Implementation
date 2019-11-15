@@ -23,8 +23,7 @@ int main(int argc, char* argv[])
     size_t bytesWrittenInCallTwo;
     bytesWrittenInCallTwo = mywrite (textToWriteTwo, strlen(textToWriteTwo), fileOne);
     printf ("mywrite callTwo returns: %zu \n", bytesWrittenInCallTwo);
-    //testing works till here; now I'm gonna try and throw it over 4096
-    //huge third text being written  using mywrite;
+    //testing works till here; now I'm gonna try and throw it over the buffer size
     //prints result and leftover bytes;
     char *textToWriteThree = "my mywrite function";
     size_t bytesWrittenInCallThree;
@@ -49,13 +48,13 @@ int main(int argc, char* argv[])
     //TEST: call myread on the file I just wrote to see if I can read it
     struct file *fileTwo = myopen ("workingFile.txt", "r");
     char *readPtr = malloc (17*sizeof(char));
-    char *readPtr2 = malloc (40*sizeof(char));
+    char *readPtr2 = malloc (39*sizeof(char));
     size_t bytesReadInCallOne = myread (readPtr, 17,
          fileTwo);
     printf ("myread callOne returns: %zu \n", bytesReadInCallOne);
     printf ("readPtr returns: %s\n", readPtr);
     free (readPtr);
-    size_t bytesReadInCallTwo = myread (readPtr2, 40,
+    size_t bytesReadInCallTwo = myread (readPtr2, 39,
          fileTwo);
     printf ("myread callTwo returns: %zu \n", bytesReadInCallTwo);
     printf ("readPtr2 returns: %s\n", readPtr2);
@@ -63,13 +62,13 @@ int main(int argc, char* argv[])
 
     FILE *fileTwoTester = fopen ("workingFile3.txt", "r");
     char *readPtrTest = malloc (17*sizeof(char));
-    char *readPtr2Test = malloc (40*sizeof(char));
+    char *readPtr2Test = malloc (39*sizeof(char));
     size_t bytesReadInCallOneTest = fread (readPtrTest,1, 17,
          fileTwoTester);
     printf ("fread callOne returns: %zu \n", bytesReadInCallOneTest);
     printf ("readPtr returns: %s\n", readPtrTest);
     free (readPtrTest);
-    size_t bytesReadInCallTwoTest = fread (readPtr2Test, 1, 40,
+    size_t bytesReadInCallTwoTest = fread (readPtr2Test, 1, 39,
          fileTwoTester);
     printf ("fread callTwo returns: %zu \n", bytesReadInCallTwoTest);
     printf ("readPtr2 returns: %s\n", readPtr2Test);
