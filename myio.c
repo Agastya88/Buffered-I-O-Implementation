@@ -148,6 +148,7 @@ size_t myread(char *ptr, size_t nmemb, struct file *stream){
     }
    }
   while (nmemb>BUFFER_SIZE){
+   int alreadyRead = 0;
    size_t sysCallReturnValue = read (stream->fD, stream->readBuffer, BUFFER_SIZE);
    if (sysCallReturnValue == -1){
     return 0;
@@ -160,9 +161,9 @@ size_t myread(char *ptr, size_t nmemb, struct file *stream){
       noOfBytesRead++;
       }
      }
-    continue;
+    nmemb = nmemb - BUFFER_SIZE;
+    alreadyRead+=BUFFER_SIZE;
    }
-   nmemb = nmemb - BUFFER_SIZE;
    if (nmemb <= BUFFER_SIZE){
     size_t sysCallReturnValue = read (stream->fD, stream->readBuffer, BUFFER_SIZE);
     if (sysCallReturnValue == -1){
@@ -171,7 +172,7 @@ size_t myread(char *ptr, size_t nmemb, struct file *stream){
     if (sysCallReturnValue !=0){
      for (int i=0; i<nmemb;i++){
       if (stream->readBuffer [i] != '\0'){
-       *(ptr+i) = stream->readBuffer [i];
+       *(ptr+i+alreadyRead) = stream->readBuffer [i];
        stream->positionInReadBuffer = i+1;
        noOfBytesRead++;
       }
@@ -269,7 +270,6 @@ int myseek(struct file *stream, long offset, int whence){
    stream->positionInReadBuffer = 0;
    //resetting write buffer at this position
    stream->bytesInWriteBuffer = 0;
-   memset (stream->writeBuffer, 0, sizeof (stream->writeBuffer));
    return 0;
  }
  return -1;
