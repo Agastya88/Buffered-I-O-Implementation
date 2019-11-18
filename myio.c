@@ -19,20 +19,21 @@ struct file *myopen(const char *pathname, const char *mode){
   }
   //determing file type
   if (strcmp (mode, "r") == 0){
-      fileDesc = open (pathname, O_RDONLY, 0666);
+   fileDesc = open (pathname, O_RDONLY, 0666);
   }
   else if (strcmp (mode, "w") == 0){
-      fileDesc = open (pathname, O_WRONLY| O_CREAT | O_TRUNC, 0666);
+   fileDesc = open (pathname, O_WRONLY| O_CREAT | O_TRUNC, 0666);
   }
   else if (strcmp (mode, "r+") == 0){
-      fileDesc = open (pathname, O_RDWR, 0666);
+   fileDesc = open (pathname, O_RDWR, 0666);
   }
   else if (strcmp (mode, "w+") == 0){
-      fileDesc = open (pathname, O_RDWR| O_CREAT | O_TRUNC, 0666);
+   fileDesc = open (pathname, O_RDWR| O_CREAT | O_TRUNC, 0666);
   }
   //checking if open is a success or failure
   if (fileDesc==-1){
-    return NULL;
+   free (fileOpened);
+   return NULL;
   }
   fileOpened->positionInReadBuffer = 0;
   fileOpened->bytesInWriteBuffer = 0;
@@ -41,7 +42,7 @@ struct file *myopen(const char *pathname, const char *mode){
 }
 
 int myflush(struct file *stream){
-  size_t flushingBytesWritten;
+  size_t flushingBytesWritten=0;
   //checking if their is a need to flush
   if (stream->bytesInWriteBuffer!=0){
     if (stream->bytesInWriteBuffer<=BUFFER_SIZE){
