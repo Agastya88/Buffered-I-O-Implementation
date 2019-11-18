@@ -52,7 +52,6 @@ int myflush(struct file *stream){
   }
   //clearing the write buffer once flushing is completed
   stream->bytesInWriteBuffer = 0;
-  memset (stream->writeBuffer, 0, sizeof (stream->writeBuffer));
   //error checking
   if (flushingBytesWritten==-1){
    return EOF;
@@ -78,7 +77,7 @@ size_t mywrite(const char *buf, size_t nmemb, struct file* stream){
     int bufferLength = stream->bytesInWriteBuffer+nmemb;
     //when it doesn't send the number of bytes over bufferSize
     if (bufferLength<BUFFER_SIZE){
-        for (int i=0; i<strlen(buf);i++){
+        for (int i=0; i<nmemb;i++){
             stream->writeBuffer[stream->bytesInWriteBuffer+i] = *(buf+i);
             noOfBytesWritten++;
         }
@@ -86,16 +85,18 @@ size_t mywrite(const char *buf, size_t nmemb, struct file* stream){
     }
     else{
     //when the new my write call sends the bytes over bufferSize
+      int alreadyWritten = 0;
       while (bufferLength>=BUFFER_SIZE){
         //add bytes till buffer fills
         for (int i=0; i<BUFFER_SIZE-(stream->bytesInWriteBuffer);i++){
-        stream->writeBuffer[(stream->bytesInWriteBuffer)+i] = *(buf+i);
+        stream->writeBuffer[(stream->bytesInWriteBuffer)+i] = *(buf+i+alreadyWritten);
         noOfBytesWritten++;
         }
         write (stream->fD, stream->writeBuffer, BUFFER_SIZE);
-        //clearing the buffer
+        alreadyWritten+=BUFFER_SIZE-(stream->bytesInWriteBuffer);
+        //increases when it goes through a whole buffer
         stream->bytesInWriteBuffer=0;
-        memset (stream->writeBuffer, 0, sizeof (stream->writeBuffer));
+        //clears buffer
         bufferLength = bufferLength - BUFFER_SIZE;
         //bufferLength is now the updated number of bytes to be written
         //in a way it is the excess bytes from "buf" that didn't get written
