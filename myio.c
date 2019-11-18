@@ -67,6 +67,7 @@ int myclose(struct file *stream){
     if (flushResult != 0){
      return EOF;
     }
+    free (stream);
     return close (stream->fD);
 }
 
