@@ -135,35 +135,39 @@ size_t myread(char *ptr, size_t nmemb, struct file *stream){
  if (stream->positionInReadBuffer == 0){
   if (nmemb <= BUFFER_SIZE){
    size_t sysCallReturnValue = read (stream->fD, stream->readBuffer, BUFFER_SIZE);
+   myseek (stream, nmemb-sysCallReturnValue, SEEK_CUR);
    if (sysCallReturnValue == -1){
     return 0;
    }
    if (sysCallReturnValue != 0){
     for (int i=0; i<nmemb;i++){
-     if (stream->readBuffer[i] != '\0'){
-      *(ptr+i) = stream->readBuffer [i];
-      stream->positionInReadBuffer = i+1;
-      noOfBytesRead++;
-      }
+     *(ptr+i) = stream->readBuffer [i];
+     stream->positionInReadBuffer = i+1;
+     noOfBytesRead++;
      }
     }
    }
+  int alreadyRead = 0;
   while (nmemb>BUFFER_SIZE){
-   int alreadyRead = 0;
+   stream->positionInReadBuffer = 0;
    size_t sysCallReturnValue = read (stream->fD, stream->readBuffer, BUFFER_SIZE);
    if (sysCallReturnValue == -1){
     return 0;
    }
    if (sysCallReturnValue != 0){
-    for (int i=0;i<BUFFER_SIZE; i++){
-     if (stream->readBuffer [stream->positionInReadBuffer] != '\0'){
-      *(ptr+i) = stream->readBuffer [stream->positionInReadBuffer];
+    for (int i=0;i<sysCallReturnValue; i++){
+      *(ptr+i+alreadyRead) = stream->readBuffer [stream->positionInReadBuffer];
       stream->positionInReadBuffer++;
       noOfBytesRead++;
-      }
-     }
-    nmemb = nmemb - BUFFER_SIZE;
-    alreadyRead+=BUFFER_SIZE;
+    }
+    if (sysCallReturnValue == BUFFER_SIZE){
+     nmemb = nmemb - BUFFER_SIZE;
+    }
+    else if (sysCallReturnValue < BUFFER_SIZE)
+    {
+     nmemb = sysCallReturnValue;
+    }
+     alreadyRead+=sysCallReturnValue;
    }
    if (nmemb <= BUFFER_SIZE){
     size_t sysCallReturnValue = read (stream->fD, stream->readBuffer, BUFFER_SIZE);
@@ -172,11 +176,9 @@ size_t myread(char *ptr, size_t nmemb, struct file *stream){
     }
     if (sysCallReturnValue !=0){
      for (int i=0; i<nmemb;i++){
-      if (stream->readBuffer [i] != '\0'){
        *(ptr+i+alreadyRead) = stream->readBuffer [i];
        stream->positionInReadBuffer = i+1;
        noOfBytesRead++;
-      }
      }
     }
    }
