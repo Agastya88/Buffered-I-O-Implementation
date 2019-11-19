@@ -52,6 +52,7 @@ int myflush(struct file *stream){
   }
   //clearing the write buffer once flushing is completed
   stream->bytesInWriteBuffer = 0;
+  stream->positionInReadBuffer = 0;
   //error checking
   if (flushingBytesWritten==-1){
    return EOF;
