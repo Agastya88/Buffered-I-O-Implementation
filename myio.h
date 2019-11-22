@@ -1,6 +1,6 @@
 #include <sys/types.h>
 
-#define BUFFER_SIZE 20
+#define BUFFER_SIZE 1000
 
 struct file
 {
@@ -9,6 +9,7 @@ struct file
     int bytesInWriteBuffer;
     char readBuffer [BUFFER_SIZE];
     int positionInReadBuffer;
+    int positionInFile;
 };
 
 struct file *myopen (const char *pathname, const char *mode);
