@@ -154,6 +154,9 @@ size_t myread(char *ptr, size_t nmemb, struct file *stream){
                     noOfBytesRead++;
                 }
             }
+            if (sysCallReturnValue<BUFFER_SIZE){
+                stream->positionInReadBuffer = 0;
+            }
         }
         int alreadyRead = 0;
         while (nmemb>BUFFER_SIZE){
