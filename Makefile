@@ -14,6 +14,9 @@ myInputOutput3: myio.o testCode3.o
 myInputOutput4: myio.o testCode4.o
 			gcc -o myInputOutput4 myio.o testCode4.o
 
+myInputOutput5: myio.o testCode5.o
+			gcc -o myInputOutput5 myio.o testCode5.o
+
 myio.o: myio.c
 		gcc $(CFLAGS) -c -o myio.o myio.c
 
@@ -28,6 +31,9 @@ testCode3.o: testCode3.c
 
 testCode4.o: testCode4.c
 		gcc $(CFLAGS) -c -o testCode4.o testCode4.c
+
+testCode5.o: testCode5.c
+		gcc $(CFLAGS) -c -o testCode5.o testCode5.c
 
 .PHONY: clean
 clean:

@@ -144,6 +144,9 @@ size_t myread(char *ptr, size_t nmemb, struct file *stream){
             if (sysCallReturnValue == -1){
                 return 0;
             }
+            if (sysCallReturnValue<nmemb){
+                nmemb = sysCallReturnValue;
+            }
             if (sysCallReturnValue != 0){
                 for (int i=0; i<nmemb;i++){
                     *(ptr+i) = stream->readBuffer [i];
