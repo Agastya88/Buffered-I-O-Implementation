@@ -10,6 +10,7 @@ struct file
     char readBuffer [BUFFER_SIZE];
     int positionInReadBuffer;
     int positionInFile;
+    int prevSysRV;
 };
 
 struct file *myopen (const char *pathname, const char *mode);
