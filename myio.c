@@ -35,6 +35,8 @@ struct file *myopen(const char *pathname, const char *mode){
   free (fileOpened);
   return NULL;
  }
+ fileOpened->prevSysRV = 0;
+ fileOpened->positionInFile = 0;
  fileOpened->positionInReadBuffer = 0;
  fileOpened->bytesInWriteBuffer = 0;
  fileOpened->fD = fileDesc;
