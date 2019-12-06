@@ -163,7 +163,7 @@ size_t myread(char *ptr, size_t nmemb, struct file *stream){
             stream->positionInReadBuffer = 0;
             size_t sysCallReturnValue = read (stream->fD, stream->readBuffer, BUFFER_SIZE);
             stream->prevSysRV = sysCallReturnValue;
-            if (sysCallReturnValue == -1 || sysCallReturnValue == 0){
+            if (sysCallReturnValue == -1){
                 return 0;
             }
             if (sysCallReturnValue != 0){
@@ -180,6 +180,8 @@ size_t myread(char *ptr, size_t nmemb, struct file *stream){
                 }
                 alreadyRead+=sysCallReturnValue;
             }
+            else
+                return noOfBytesRead;
             if (nmemb <= BUFFER_SIZE){
                 size_t sysCallReturnValue = read (stream->fD, stream->readBuffer, BUFFER_SIZE);
                 stream->prevSysRV = sysCallReturnValue;
