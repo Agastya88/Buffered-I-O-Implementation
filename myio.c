@@ -151,11 +151,9 @@ size_t myread(char *ptr, size_t nmemb, struct file *stream){
                 nmemb = sysCallReturnValue;
             }
             if (sysCallReturnValue != 0){
-                for (int i=0; i<nmemb;i++){
-                    *(ptr+i) = stream->readBuffer [i];
-                    stream->positionInReadBuffer = i+1;
-                    noOfBytesRead++;
-                }
+                memcpy ((ptr), stream->readBuffer, nmemb*(sizeof(char)));
+                stream->positionInReadBuffer = nmemb;
+                noOfBytesRead += nmemb;
             }
         }
         int alreadyRead = 0;
@@ -167,18 +165,16 @@ size_t myread(char *ptr, size_t nmemb, struct file *stream){
                 return 0;
             }
             if (sysCallReturnValue != 0){
-                for (int i=0;i<sysCallReturnValue; i++){
-                    *(ptr+i+alreadyRead) = stream->readBuffer [stream->positionInReadBuffer];
-                    stream->positionInReadBuffer++;
-                    noOfBytesRead++;
-                }
+                memcpy (ptr+alreadyRead, stream->readBuffer+stream->positionInReadBuffer, sysCallReturnValue*sizeof (char));
+                stream->positionInReadBuffer+=sysCallReturnValue;
+                noOfBytesRead += sysCallReturnValue;
                 if (sysCallReturnValue == BUFFER_SIZE){
                     nmemb = nmemb - BUFFER_SIZE;
                 }
                 else if (sysCallReturnValue < BUFFER_SIZE){
                     nmemb = sysCallReturnValue;
                 }
-                alreadyRead+=sysCallReturnValue;
+                alreadyRead += sysCallReturnValue;
             }
             else
                 return noOfBytesRead;
@@ -192,11 +188,9 @@ size_t myread(char *ptr, size_t nmemb, struct file *stream){
                     if (sysCallReturnValue<nmemb){
                         nmemb = sysCallReturnValue;
                     }
-                    for (int i=0; i<nmemb;i++){
-                        *(ptr+i+alreadyRead) = stream->readBuffer [i];
-                        stream->positionInReadBuffer = i+1;
-                        noOfBytesRead++;
-                    }
+                    memcpy (ptr+alreadyRead, stream->readBuffer, nmemb*(sizeof(char)));
+                    stream->positionInReadBuffer += nmemb;
+                    noOfBytesRead += nmemb;
                 }
             }
         }
@@ -206,19 +200,17 @@ size_t myread(char *ptr, size_t nmemb, struct file *stream){
         int readWOSysCall = stream->prevSysRV - stream->positionInReadBuffer;
         if (readWOSysCall>=nmemb){
             //then simply just give them what they want
-            for (int j=0; j<nmemb; stream->positionInReadBuffer++, j++){
-                *(ptr+j) = stream->readBuffer [stream->positionInReadBuffer];
-                noOfBytesRead++;
-            }
+            memcpy (ptr, stream->readBuffer+stream->positionInReadBuffer, nmemb*(sizeof(char)));
+            stream->positionInReadBuffer+=nmemb;
+            noOfBytesRead += nmemb;
         }
         else if (readWOSysCall<nmemb){
             //now you cannot just give them what they want, because you
             //don't have it, so you need a system call
             //first give them the ones that are already in the buffer
-            for (int j=0; j<readWOSysCall; stream->positionInReadBuffer++, j++){
-                *(ptr+j) = stream->readBuffer [stream->positionInReadBuffer];
-                noOfBytesRead++;
-            }
+            memcpy (ptr, stream->readBuffer+stream->positionInReadBuffer, readWOSysCall*(sizeof(char)));
+            stream->positionInReadBuffer += readWOSysCall;
+            noOfBytesRead += readWOSysCall;
             //then give them the ones that require sys calls
             int bytesRemaining = nmemb - readWOSysCall;
             stream->positionInReadBuffer = 0;
@@ -229,11 +221,10 @@ size_t myread(char *ptr, size_t nmemb, struct file *stream){
                 if (sysCallReturnValue == -1){
                     return 0;
                 }
-                for (int j=newPtrLocation; stream->positionInReadBuffer<bytesRemaining;
-                    stream->positionInReadBuffer++, j++){
-                        *(ptr+j) = stream->readBuffer [stream->positionInReadBuffer];
-                        noOfBytesRead++;
-                    }
+                    int locDif = bytesRemaining-stream->positionInReadBuffer;
+                    memcpy (ptr+newPtrLocation, stream->readBuffer+stream->positionInReadBuffer, locDif*sizeof(char));
+                    stream->positionInReadBuffer += locDif;
+                    noOfBytesRead += locDif;
                 }
                 else{
                     //here I can just give them what they want directly use the system
